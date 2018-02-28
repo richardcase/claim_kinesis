@@ -1,0 +1,27 @@
+{
+  "name": "claim_kinesis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "produce": "node producer.js",
+    "consumer": "NODE_LOG_DIR=$(pwd)/logs node_modules/aws-kcl/bin/kcl-bootstrap -p consumer.properties -e -j /usr/bin/java"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-kcl": "^0.7.0",
+    "aws-sdk": "^2.203.0",
+    "ini": "^1.3.5",
+    "log4js": "~0.6.22",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "ajv": "^6.2.0",
+    "eslint": "^4.18.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-import": "^2.9.0"
+  }
+}
