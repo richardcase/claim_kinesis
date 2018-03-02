@@ -6,6 +6,7 @@ var mongoose = require('mongoose');
 var logger = require('../../utils/logger');
 var Producer = require('../../producer');
 var commands = require('../../commands');
+var Claim = require('../../models/claim');
 
 var mongodbConnectString = 'mongodb://localhost:27017/rewards';
 var producer = new Producer();
@@ -52,19 +53,32 @@ function recordProcessor() {
         if (!command.isValid()) {
           log.error(util.format('Invalid command: %s', cmd));
         } else {
-          const meta = {}
-          let event = command.event(meta);
-          log.info(util.format('Event: %s', event));
+          var query = Claim.findOne({ 'claimid': cmd.aggregateId });
 
-          let key = event.aggregateType + "-" + event.aggregateId;
-          producer.send('rewards-events-poc', JSON.stringify(event), key,  function(err, response) {
+          query.exec(function (err, claim) {
             if (err) {
-              log.error(util.format('error sending event: %s', err));
-              //TODO: handle checkpoint properly
-            } else {
-              log.debug(util.format('Event %s sent. SharId %s, SequnceNumber %s ', event.id, response.ShareId, response.SequenceNumber ));
-              //TODO: handle checkpoint properly
+              log.error(util.format('Error quering for claim %s', err));
+              return err
             }
+            if (claim == null && command.aggregateMustExist === true) {
+              log.error(util.format('Could not find claim %s but an existing aggregate is required for command', cmd.aggregateId, cmd.command));
+              return;
+            }
+
+            const meta = {}
+            let event = command.event(meta);
+            log.info(util.format('Event: %s', event));
+
+            let key = event.aggregateType + "-" + event.aggregateId;
+            producer.send('rewards-events-poc', JSON.stringify(event), key,  function(err, response) {
+              if (err) {
+                log.error(util.format('error sending event: %s', err));
+                //TODO: handle checkpoint properly
+              } else {
+                log.debug(util.format('Event %s sent. SharId %s, SequnceNumber %s ', event.id, response.ShareId, response.SequenceNumber ));
+                //TODO: handle checkpoint properly
+              }
+            });
           });
         }
 

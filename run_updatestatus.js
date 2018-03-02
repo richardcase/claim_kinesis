@@ -4,6 +4,7 @@ var Producer = require('./producer');
 
 var updateStatus = {
     id: "8af7966c-ac88-4013-894c-2e106ee66760",
+    aggregateId: 'e41211bb-28b0-41e5-8203-a5abfd1b09a1',
     command: 'UpdateClaimStatus',
     payload: {
       claimid: "e41211bb-28b0-41e5-8203-a5abfd1b09a1", //UPDATE before running.
