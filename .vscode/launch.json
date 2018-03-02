@@ -13,11 +13,23 @@
 {
   "type": "node",
   "request": "launch",
-  "name": "Launch via NPM",
+  "name": "Launch CommandProc via NPM",
   "runtimeExecutable": "npm",
   "runtimeArgs": [
     "run-script",
-    "consumer"
+    "consumer-debug"
+  ],
+  "port": 9229,
+  "timeout": 40000
+},
+{
+  "type": "node",
+  "request": "launch",
+  "name": "Launch ClaimView via NPM",
+  "runtimeExecutable": "npm",
+  "runtimeArgs": [
+    "run-script",
+    "claimview-debug"
   ],
   "port": 9229,
   "timeout": 40000

@@ -2,23 +2,14 @@
 
 var kcl = require('aws-kcl');
 var util = require('util');
-var logger = require('./utils/logger');
-var DB = require('./DB.js')
-var Producer = require('./producer');
-var commands = require('./commands');
+var mongoose = require('mongoose');
+var logger = require('../../utils/logger');
+var Claim = require('../../models/claim');
 
-var mongodbConnectString = 'mongodb://localhost:27017';
-var mongoDbName = 'rewards';
-//var mongodbCollection = 'commands';
-var database = new DB();
-var producer = new Producer();
-
-
-var logDir = process.env.NODE_LOG_DIR !== undefined ? process.env.NODE_LOG_DIR : '.';
-var logfile = logDir + '/' + 'command_processor.log';
+var mongodbConnectString = 'mongodb://localhost:27017/rewards';
 
 function recordProcessor() {
-  var log = logger(logfile).getLogger('recordProcessor');
+  var log = logger().getLogger('claimview');
   log.debug(util.format('Using node version: %s', process.version));
   var shardId;
 
@@ -28,12 +19,14 @@ function recordProcessor() {
       shardId = initializeInput.shardId;
 
       log.debug(util.format('About to connect to %s.', mongodbConnectString));
-      database.connect(mongodbConnectString, mongoDbName, function(err) {
+      mongoose.connect(mongodbConnectString,null, function(err) {
         if (err) {
           log.error(util.format('There was an error connecting to mongo: %s', err));
+        } else {
+          log.debug('Connected to mongo');
         }
         completeCallback();
-      })
+      });
     },
 
     processRecords: function (processRecordsInput, completeCallback) {
@@ -50,51 +43,35 @@ function recordProcessor() {
         partitionKey = record.partitionKey;
         log.debug(util.format('ShardID: %s, Record: %s, SeqenceNumber: %s, PartitionKey:%s', shardId, data, sequenceNumber, partitionKey));
 
-        var cmd = JSON.parse(data);
-        let command = commands[cmd.command](cmd);
-        if (!command.isValid()) {
-          log.error(util.format('Invalid command: %s', cmd));
-        } else {
-          const meta = {}
-          let event = command.event(meta);
-          log.info(util.format('Event: %s', event));
+        var event = JSON.parse(data);
+        var query = Claim.findOne({ 'claimid': event.aggregateId });
 
-          producer.send('rewards-events-poc', JSON.stringify(event), event.payload.claimid,  function(err, response) {
-            if (err) {
-              log.error(util.format('error sending event: %s', err));
-              //TODO: handle checkpoint properly
-            } else {
-              log.debug(util.format('Event %s sent. SharId %s, SequnceNumber %s ', event.id, response.ShareId, response.SequenceNumber ));
-              //TODO: handle checkpoint properly
-            }
-          });
-        }
-
-        /*
-        var objectToStore = {}
-        try {
-
-        } catch (err) {
-          // Looks like it wasn't JSON so store the raw string
-          objectToStore.payload = data;
-        }
-        objectToStore.metaData = {};
-        objectToStore.metaData.mongoLabel = "Added by consumer";
-
-        log.debug(util.format('About to save document'));
-        database.addDocument(mongodbCollection, objectToStore, function(err) {
-          if (err) {
-            log.error(util.format('There was an error saving document %s', err));
-          } else {
-            log.debug('Document saved');
+        query.exec(function (err, claim) {
+          if (err)  {
+            log.error(util.format('Error quering for claim %s', err));
+            return err
           }
-        });*/
 
+          if (!claim) {
+            log.debug(util.format('No claim found so creating new claim: %s', event.aggregateId));
+            claim = new Claim();
+          } else {
+            log.debug(util.format('Claim found %s', event.aggregateId));
+          }
+          log.debug(util.format('Applying event %s with id %s to claim %s',event.eventType, event.id, event.aggregateId));
+          claim.applyEvent(event);
+
+          log.debug(util.format('About to save claim %s', event.aggregateId));
+          claim.save();
+          log.debug(util.format('Saved claim %s', event.aggregateId));
+
+        });
       }
       if (!sequenceNumber) {
         completeCallback();
         return;
       }
+      //TODO: checkpoint needs to be handled above
       processRecordsInput.checkpointer.checkpoint(sequenceNumber, function (err, sequenceNumber) {
         log.debug(util.format('Checkpoint successful. ShardID: %s, SeqenceNumber: %s', shardId, sequenceNumber));
         completeCallback();
