@@ -4,15 +4,22 @@ var kcl = require('aws-kcl');
 var util = require('util');
 var logger = require('./utils/logger');
 var DB = require('./DB.js')
+var Producer = require('./producer');
+var commands = require('./commands');
 
 var mongodbConnectString = 'mongodb://localhost:27017';
 var mongoDbName = 'rewards';
-var mongodbCollection = 'commands';
+//var mongodbCollection = 'commands';
 var database = new DB();
+var producer = new Producer();
+
+
+var logDir = process.env.NODE_LOG_DIR !== undefined ? process.env.NODE_LOG_DIR : '.';
+var logfile = logDir + '/' + 'command_processor.log';
 
 function recordProcessor() {
-  var log = logger().getLogger('recordProcessor');
-  log.level = 'debug';
+  var log = logger(logfile).getLogger('recordProcessor');
+  log.debug(util.format('Using node version: %s', process.version));
   var shardId;
 
   return {
@@ -43,9 +50,30 @@ function recordProcessor() {
         partitionKey = record.partitionKey;
         log.debug(util.format('ShardID: %s, Record: %s, SeqenceNumber: %s, PartitionKey:%s', shardId, data, sequenceNumber, partitionKey));
 
+        var cmd = JSON.parse(data);
+        let command = commands[cmd.command](cmd);
+        if (!command.isValid()) {
+          log.error(util.format('Invalid command: %s', cmd));
+        } else {
+          const meta = {}
+          let event = command.event(meta);
+          log.info(util.format('Event: %s', event));
+
+          producer.send('rewards-events-poc', JSON.stringify(event), event.payload.claimid,  function(err, response) {
+            if (err) {
+              log.error(util.format('error sending event: %s', err));
+              //TODO: handle checkpoint properly
+            } else {
+              log.debug(util.format('Event %s sent. SharId %s, SequnceNumber %s ', event.id, response.ShareId, response.SequenceNumber ));
+              //TODO: handle checkpoint properly
+            }
+          });
+        }
+
+        /*
         var objectToStore = {}
         try {
-          objectToStore = JSON.parse(data);
+
         } catch (err) {
           // Looks like it wasn't JSON so store the raw string
           objectToStore.payload = data;
@@ -60,7 +88,7 @@ function recordProcessor() {
           } else {
             log.debug('Document saved');
           }
-        });
+        });*/
 
       }
       if (!sequenceNumber) {

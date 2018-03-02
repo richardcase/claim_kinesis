@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "produce": "node producer.js",
-    "consumer": "NODE_LOG_DIR=$(pwd)/logs node_modules/aws-kcl/bin/kcl-bootstrap -p consumer.properties -e -j /usr/bin/java"
+    "consumer": "NODE_LOG_DIR=$(pwd)/logs node_modules/aws-kcl/bin/kcl-bootstrap -p command_processor.properties -e -j /usr/bin/java",
+    "consumer-debug": "NODE_LOG_DIR=$(pwd)/logs node_modules/aws-kcl/bin/kcl-bootstrap -p command_processor_debug.properties -e -j /usr/bin/java"
   },
   "keywords": [],
   "author": "",

@@ -4,7 +4,7 @@ plugins:
 env:
   mocha: true
   commonjs: true
-  #es6: true
+  es6: true
   node: true
 globals:
   assert: true
@@ -12,6 +12,10 @@ globals:
   spy: true
   createStubInstance: true
   useFakeTimers: true
+parserOptions:
+  ecmaversion: 6
+  ecmaFeatures:
+    experimentalObjectRestSpread: true
 rules:
   strict: off
   no-console: off
